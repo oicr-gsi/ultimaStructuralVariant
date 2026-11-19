@@ -2,6 +2,8 @@
 
 ## Overview
 
+![ultimaStructuralVariant workflow flowchart](./docs/ultimaStructuralVariant.flow.svg)
+
 Structural variant calling for Ultima Genomics data, germline or somatic. The genome is split into shards; per shard, reads with soft clips, indels or mismatches are locally assembled into haplotypes. The haplotypes are realigned with the UA aligner and the better of the original and UA alignment is kept per haplotype, homopolymer-rich haplotypes are realigned, and every read is matched to the haplotype it supports. GRIDSS calls breakpoints from the supported assembly and annotates them shard by shard. Germline calls are then linked into events; somatic calls are filtered by GRIPSS against panels of normals. Adapted from the Ultima Genomics [structural_variant_pipeline](https://github.com/Ultimagen/healthomics-workflows/tree/main/workflows/structural_variant_pipeline) workflow (v1.37.1).
 
 Somatic calling runs when `tumorCrams` is given, with `germlineCrams` as the matched normal (optional, for tumor-only); otherwise `germlineCrams` is called as a germline sample. Read-selection thresholds and the default shard count follow the upstream germline and somatic templates. The optional pangenome (Giraffe) realignment of the upstream workflow is not included.
