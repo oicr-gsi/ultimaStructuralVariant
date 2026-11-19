@@ -1,0 +1,992 @@
+## Commands
+This section lists command(s) run by ultimaStructuralVariant workflow
+
+* Running ultimaStructuralVariant
+
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    tumor=(~{sep=" " tumorCrams})
+    germline=(~{sep=" " germlineCrams})
+    for f in "${tumor[@]}" "${germline[@]}"; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # Distinct SM values over the read groups of all the given alignment files
+    sample_names() {
+      for f in "$@"; do
+        run samtools view -H "$(readlink -f "$f")" \
+          | awk -F'\t' '$1 == "@RG" { for (i = 2; i <= NF; i++) if ($i ~ /^SM:/) print substr($i, 4) }'
+      done | sort -u
+    }
+
+    # Each group given must name exactly one sample; an empty group writes an empty name
+    one_sample_name() {
+      local group="$1"
+      shift
+      : > "${group}_sample_name.txt"
+      [[ "$#" -gt 0 ]] || return 0
+      sample_names "$@" > "${group}_names.txt"
+      if [[ $(wc -l < "${group}_names.txt") -ne 1 ]]; then
+        echo "Expected exactly one sample name across the ${group} files, found:" >&2
+        cat "${group}_names.txt" >&2
+        exit 1
+      fi
+      tr -d '\n' < "${group}_names.txt" > "${group}_sample_name.txt"
+    }
+
+    if [[ "${#tumor[@]}" -eq 0 && "${#germline[@]}" -eq 0 ]]; then
+      echo "No input alignments: give tumorCrams, germlineCrams or both" >&2
+      exit 1
+    fi
+    one_sample_name tumor "${tumor[@]}"
+    one_sample_name germline "${germline[@]}"
+    if [[ -s tumor_sample_name.txt && "$(cat tumor_sample_name.txt)" == "$(cat germline_sample_name.txt)" ]]; then
+      echo "Tumor and germline files share the sample name $(cat tumor_sample_name.txt)" >&2
+      exit 1
+    fi
+
+    # GRIDSS sample order: tumor first, then germline
+    : > sample_names.txt
+    for f in tumor_sample_name.txt germline_sample_name.txt; do
+      if [[ -s "$f" ]]; then
+        cat "$f" >> sample_names.txt
+        echo >> sample_names.txt
+      fi
+    done
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    add_bind_root ~{intervalList}
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # With SCATTER_COUNT=1 IntervalListTools writes OUTPUT as a single file rather than
+    # a directory of temp_NNNN_of_N subdirectories, so point it at that layout directly.
+    mkdir out beds
+    output_arg=out
+    if [[ ~{numShards} -le 1 ]]; then
+      mkdir out/temp_0001_of_1
+      output_arg=out/temp_0001_of_1/scattered.interval_list
+    fi
+
+    run gatk --java-options "-Xmx~{jobMemory - 3}g" IntervalListTools \
+      SCATTER_COUNT=~{numShards} \
+      SUBDIVISION_MODE=BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW \
+      UNIQUE=true \
+      SORT=true \
+      BREAK_BANDS_AT_MULTIPLES_OF=~{breakBandsAtMultiplesOf} \
+      INPUT="$(readlink -f ~{intervalList})" \
+      OUTPUT="${output_arg}"
+
+    # Number the shards in scatter order so every BED has a unique name
+    i=0
+    for f in out/*/*.interval_list; do
+      i=$((i + 1))
+      grep -v '^@' "$f" | awk 'BEGIN { OFS = "\t" } { print $1, $2 - 1, $3 }' > "$(printf 'beds/shard_%04d.bed' "$i")"
+    done
+```
+```
+    set -euo pipefail
+
+    tumor=(~{sep=" " tumorCrams})
+    tumor_idx=(~{sep=" " tumorCramIndexes})
+    germline=(~{sep=" " germlineCrams})
+    germline_idx=(~{sep=" " germlineCramIndexes})
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in "${tumor[@]}" "${tumor_idx[@]}" "${germline[@]}" "${germline_idx[@]}" ~{shardBed} ~{refFasta}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # Cromwell may localize an alignment and its index to different directories; link
+    # each pair side by side. The counter prefix keeps files with the same basename apart.
+    mkdir alignments
+    n=0
+    link_group() {
+      local -n files="$1" indexes="$2"
+      local i name links=() index_links=()
+      for i in "${!files[@]}"; do
+        name="${n}_$(basename "${files[$i]}")"
+        n=$((n + 1))
+        ln -s "${files[$i]}" "alignments/${name}"
+        ln -s "${indexes[$i]}" "alignments/${name}.${indexes[$i]##*.}"
+        links+=("${PWD}/alignments/${name}")
+        index_links+=("${PWD}/alignments/${name}.${indexes[$i]##*.}")
+      done
+      (IFS=,; echo "${links[*]}") > "alignments/$1.inputs"
+      (IFS=,; echo "${index_links[*]}") > "alignments/$1.indexes"
+    }
+
+    # The assembler takes one comma-separated list per sample, samples separated by ';',
+    # tumor first; tumor reads also switch on somatic active areas
+    inputs=()
+    indexes=()
+    somatic_args=""
+    if [[ "${#tumor[@]}" -gt 0 ]]; then
+      link_group tumor tumor_idx
+      inputs+=("$(cat alignments/tumor.inputs)")
+      indexes+=("$(cat alignments/tumor.indexes)")
+      somatic_args="--somatic-active-areas"
+    fi
+    if [[ "${#germline[@]}" -gt 0 ]]; then
+      link_group germline germline_idx
+      inputs+=("$(cat alignments/germline.inputs)")
+      indexes+=("$(cat alignments/germline.indexes)")
+    fi
+    INPUT_STRING="$(IFS=';'; echo "${inputs[*]}")"
+    INDEX_STRING="$(IFS=';'; echo "${indexes[*]}")"
+    REF="$(readlink -f ~{refFasta})"
+    BED="$(readlink -f ~{shardBed})"
+    export INPUT_STRING INDEX_STRING REF BED somatic_args
+
+    run bash -euo pipefail <<'CONTAINER'
+    # shellcheck disable=SC2086
+    tool \
+      --input "${INPUT_STRING}" \
+      --cram-index "${INDEX_STRING}" \
+      ${somatic_args} \
+      --output ~{outputPrefix} \
+      --ref "${REF}" \
+      --bed "${BED}" \
+      --min-base ~{minBase} \
+      --min-mapq ~{minMapq} \
+      --median-coverage 1 \
+      --background-median-coverage 1 \
+      --max-reads-per-region ~{maxReadsPerPartition} \
+      --min-feature-length '~{minIndelScSize}' \
+      --min-mismatch-count '~{minMismatchCount}' \
+      --max-num-haps ~{maxNumHaps} \
+      --haps-max-sv-events 1 \
+      --haps-hp-dedup true \
+      --haps-read-witness true \
+      --haps-weight-boost false \
+      --haps-low-haps-rescue false \
+      --haps-chain-graph-add false \
+      --haps-allow-nonunique-ref false \
+      --haps-min-path-cover false \
+      --haps-merge-dangling false \
+      --haps-contig-consensus false \
+      --prog \
+      --sv \
+      --htslib \
+      --realigned-sam
+    samtools sort -o ~{outputPrefix}_hap_out_sorted.bam ~{outputPrefix}_hap_out.sam
+    samtools index ~{outputPrefix}_hap_out_sorted.bam
+    rm ~{outputPrefix}_hap_out.sam
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    bams=()
+    for f in ~{sep=" " bams}; do
+      bams+=("$(readlink -f "$f")")
+      add_bind_root "${bams[-1]}"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    printf '%s\n' "${bams[@]}" > bams.txt
+    run bash -euo pipefail <<'CONTAINER'
+    samtools merge -c -@ ~{cores} -b bams.txt ~{outputPrefix}.bam
+    samtools index ~{outputPrefix}.bam
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    bams=()
+    for f in ~{sep=" " bams}; do
+      bams+=("$(readlink -f "$f")")
+      add_bind_root "${bams[-1]}"
+    done
+    add_bind_root ~{uaIndex}
+    add_bind_root ~{refAlt}
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    printf '%s\n' "${bams[@]}" > bams.txt
+    UA_INDEX="$(readlink -f ~{uaIndex})"
+    REF_ALT="$(readlink -f ~{refAlt})"
+    export UA_INDEX REF_ALT
+
+    run bash -euo pipefail <<'CONTAINER'
+    # shellcheck disable=SC2086
+    samtools merge -@ ~{cores} -c -O SAM -b bams.txt - \
+      | ua \
+          --index "${UA_INDEX}" \
+          --align true \
+          --progress \
+          --tp reference \
+          --alt="${REF_ALT}" \
+          --stat=~{outputPrefix}.%s.json \
+          --nthread ~{cores} \
+          --sam-input - \
+          --sam-output - \
+          ~{uaExtraArgs} \
+      | samtools view -@ ~{cores} -o ~{outputPrefix}.bam -
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    bams=()
+    for f in ~{sep=" " bams}; do
+      bams+=("$(readlink -f "$f")")
+      add_bind_root "${bams[-1]}"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    printf '%s\n' "${bams[@]}" > bams.txt
+
+    # The chooser needs every source sorted by read name. The tie-breaker index points past
+    # the two sources, as upstream does when the optional third (pangenome) source is off.
+    run bash -euo pipefail <<'CONTAINER'
+    sources=()
+    i=0
+    while read -r bam; do
+      i=$((i + 1))
+      samtools sort -@ ~{cores} -n -o "source_${i}.bam" "${bam}"
+      sources+=(--alignment_source "source_${i}.bam")
+    done < bams.txt
+    python3 /opt/gridss/choose_best_haplotype_realignment.py \
+      "${sources[@]}" \
+      --output ~{outputPrefix}_unsorted.bam \
+      --min_mapping_quality ~{realignMapq} \
+      --tie_breaker_idx 2 \
+      --overwrite_mapq 2,3,30
+    samtools sort -@ ~{cores} -o ~{outputPrefix}.bam ~{outputPrefix}_unsorted.bam
+    samtools index ~{outputPrefix}.bam
+    rm source_*.bam ~{outputPrefix}_unsorted.bam
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in ~{inputBam} ~{inputBamIndex} ~{refFasta} ~{refFai} ~{refDict}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # The index is looked up next to the BAM, so pass the BAM by a path that has both
+    ln -s ~{inputBam} input.bam
+    ln -s ~{inputBamIndex} input.bam.bai
+
+    run python3 /opt/gridss/align_long_homopolymers.py \
+      --input "${PWD}/input.bam" \
+      --output ~{outputPrefix}.bam \
+      --reference "$(readlink -f ~{refFasta})" \
+      --homopolymer_length ~{homopolymerLength}
+```
+```
+    set -euo pipefail
+
+    tumor=(~{sep=" " tumorCrams})
+    tumor_idx=(~{sep=" " tumorCramIndexes})
+    germline=(~{sep=" " germlineCrams})
+    germline_idx=(~{sep=" " germlineCramIndexes})
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in "${tumor[@]}" "${tumor_idx[@]}" "${germline[@]}" "${germline_idx[@]}" \
+        ~{assemblyBam} ~{assemblyBamIndex} ~{shardBed} ~{refFasta}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # Cromwell may localize an alignment and its index to different directories; link
+    # each pair side by side. The counter prefix keeps files with the same basename apart.
+    mkdir alignments
+    n=0
+    link_group() {
+      local -n files="$1" indexes="$2"
+      local i name links=()
+      for i in "${!files[@]}"; do
+        name="${n}_$(basename "${files[$i]}")"
+        n=$((n + 1))
+        ln -s "${files[$i]}" "alignments/${name}"
+        ln -s "${indexes[$i]}" "alignments/${name}.${indexes[$i]##*.}"
+        links+=("${PWD}/alignments/${name}")
+      done
+      (IFS=,; echo "${links[*]}") > "alignments/$1.inputs"
+    }
+    ln -s ~{assemblyBam} alignments/assembly.bam
+    ln -s ~{assemblyBamIndex} alignments/assembly.bam.bai
+
+    # One comma-separated list per sample, samples separated by ';', tumor first
+    inputs=()
+    if [[ "${#tumor[@]}" -gt 0 ]]; then
+      link_group tumor tumor_idx
+      inputs+=("$(cat alignments/tumor.inputs)")
+    fi
+    if [[ "${#germline[@]}" -gt 0 ]]; then
+      link_group germline germline_idx
+      inputs+=("$(cat alignments/germline.inputs)")
+    fi
+
+    run sv_rematch \
+      -b "$(readlink -f ~{shardBed})" \
+      -j ~{cores} -t -a -v \
+      -l '~{minIndelScSize}' \
+      -s '~{minMismatchCount}' \
+      -m ~{minMapq} \
+      -L ~{maxReadsPerWorkingArea} \
+      "$(IFS=';'; echo "${inputs[*]}")" \
+      "${PWD}/alignments/assembly.bam" \
+      "$(readlink -f ~{refFasta})" \
+      ~{outputPrefix}_rematched_hap.txt
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    : > shards.txt
+    for f in ~{sep=" " matchedReads}; do
+      readlink -f "$f" >> shards.txt
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # A read can be matched in more than one shard: keep its best-scoring haplotype, then
+    # order the assignments by haplotype
+    run bash -euo pipefail <<'CONTAINER'
+    export LC_ALL=C
+    mapfile -t shards < shards.txt
+    sort -T . -m -k1,1 -k3,3rn "${shards[@]}" \
+      | awk '$1 != prev { print; prev = $1 }' \
+      | sort -T . -k2,2 > ~{outputPrefix}.all_matches_by_hap.txt
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in ~{assemblyBam} ~{matchedReads} ~{refFasta}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    ASSEMBLY="$(readlink -f ~{assemblyBam})"
+    MATCHED="$(readlink -f ~{matchedReads})"
+    REF="$(readlink -f ~{refFasta})"
+    export ASSEMBLY MATCHED REF
+
+    run bash -euo pipefail <<'CONTAINER'
+    samtools sort -N -o assembly_name_sorted.bam "${ASSEMBLY}"
+    sv_rematch -v -S -M "${MATCHED}" \
+      assembly_name_sorted.bam \
+      "${REF}" \
+      ~{outputPrefix}_assembly.support.name_sorted.bam
+    samtools sort -o ~{outputPrefix}_assembly.support.bam ~{outputPrefix}_assembly.support.name_sorted.bam
+    samtools index ~{outputPrefix}_assembly.support.bam
+    rm assembly_name_sorted.bam ~{outputPrefix}_assembly.support.name_sorted.bam
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in ~{assemblyBam} ~{assemblyBamIndex} ~{refFasta} ~{refFai} ~{refDict} ~{blacklistBed}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # GRIDSS writes working files next to its inputs and a cache next to the reference, so
+    # give it links in the task directory rather than paths in read-only locations
+    mkdir ref tmp
+    ln -s "$(readlink -f ~{refFasta})" ref/
+    ln -s "$(readlink -f ~{refFai})" ref/
+    ln -s "$(readlink -f ~{refDict})" ref/
+    ln -s ~{assemblyBam} assembly.bam
+    ln -s ~{assemblyBamIndex} assembly.bam.bai
+    REF="${PWD}/ref/$(basename "$(readlink -f ~{refFasta})")"
+    BLACKLIST="$(readlink -f ~{blacklistBed})"
+    export REF BLACKLIST
+
+    run bash -euo pipefail <<'CONTAINER'
+    python3 - <<'PYTHON'
+    import re
+    text = "~{gridssConfig}"
+    pattern = r'(\w+(?:\.\w+)+\s*=\s*(?:\d+(?:\.\d+)?|true|false|\w+))'
+    with open("gridss.config", "w") as fh:
+        fh.write("\n".join(re.findall(pattern, text)))
+    PYTHON
+    java -Xmx~{jobMemory - 2}g -Djava.io.tmpdir="${PWD}/tmp" \
+      -cp /opt/gridss/gridss--gridss-jar-with-dependencies.jar gridss.IdentifyVariants \
+      ~{sep=" " prefix("SAMPLE_NAMES=", sampleNames)} \
+      R="${REF}" \
+      O=~{outputPrefix}.vcf \
+      BLACKLIST="${BLACKLIST}" \
+      ASSEMBLY=assembly.bam \
+      C=gridss.config
+    bcftools view ~{outputPrefix}.vcf -Oz -o ~{outputPrefix}.vcf.gz
+    bcftools index -t ~{outputPrefix}.vcf.gz
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    add_bind_root ~{inputVcf}
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    VCF="$(readlink -f ~{inputVcf})"
+    export VCF
+
+    run bash -euo pipefail <<'CONTAINER'
+    bcftools view -Oz -i "~{filterExpression}" -o ~{outputPrefix}.vcf.gz "${VCF}"
+    bcftools index -t ~{outputPrefix}.vcf.gz
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    tumor=(~{sep=" " tumorCrams})
+    tumor_idx=(~{sep=" " tumorCramIndexes})
+    germline=(~{sep=" " germlineCrams})
+    germline_idx=(~{sep=" " germlineCramIndexes})
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in "${tumor[@]}" "${tumor_idx[@]}" "${germline[@]}" "${germline_idx[@]}" \
+        ~{inputVcf} ~{inputVcfIndex} ~{assemblyBam} ~{assemblyBamIndex} ~{shardBed} \
+        ~{refFasta} ~{refFai} ~{refDict} ~{blacklistBed}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # Cromwell may localize a file and its index to different directories; link each pair
+    # side by side. The counter prefix keeps files with the same basename apart.
+    mkdir alignments ref tmp
+    n=0
+    link_group() {
+      local -n files="$1" indexes="$2"
+      local i name args=""
+      for i in "${!files[@]}"; do
+        name="${n}_$(basename "${files[$i]}")"
+        n=$((n + 1))
+        ln -s "${files[$i]}" "alignments/${name}"
+        ln -s "${indexes[$i]}" "alignments/${name}.${indexes[$i]##*.}"
+        args+=" -I ${PWD}/alignments/${name}"
+      done
+      echo "${args}"
+    }
+    TUMOR_ARGS="$(link_group tumor tumor_idx)"
+    GERMLINE_ARGS="$(link_group germline germline_idx)"
+    ln -s ~{assemblyBam} alignments/assembly.bam
+    ln -s ~{assemblyBamIndex} alignments/assembly.bam.bai
+    ln -s ~{inputVcf} candidates.vcf.gz
+    ln -s ~{inputVcfIndex} candidates.vcf.gz.tbi
+
+    # GRIDSS writes working files next to its inputs and a cache next to the reference, so
+    # give it links in the task directory rather than paths in read-only locations
+    ln -s "$(readlink -f ~{refFasta})" ref/
+    ln -s "$(readlink -f ~{refFai})" ref/
+    ln -s "$(readlink -f ~{refDict})" ref/
+    REF="${PWD}/ref/$(basename "$(readlink -f ~{refFasta})")"
+    BED="$(readlink -f ~{shardBed})"
+    BLACKLIST="$(readlink -f ~{blacklistBed})"
+    export TUMOR_ARGS GERMLINE_ARGS REF BED BLACKLIST
+
+    # Annotate this shard's candidates from the reads and assembly in the shard only: GRIDSS
+    # reads every alignment it is given in full to collect its metrics
+    run bash -euo pipefail <<'CONTAINER'
+    python3 - <<'PYTHON'
+    import re
+    text = "~{gridssConfig}"
+    pattern = r'(\w+(?:\.\w+)+\s*=\s*(?:\d+(?:\.\d+)?|true|false|\w+))'
+    with open("gridss.config", "w") as fh:
+        fh.write("\n".join(re.findall(pattern, text)))
+    PYTHON
+
+    bcftools view -R "${BED}" -o shard.vcf candidates.vcf.gz
+
+    subset() {
+      local out="$1"
+      shift
+      # shellcheck disable=SC2068
+      gatk --java-options "-Xmx4g -Djava.io.tmpdir=${PWD}/tmp" PrintReads $@ \
+        -O /dev/stdout -L "${BED}" -R "${REF}" \
+        | samtools view -C -T "${REF}" -o "${out}" --output-fmt-option embed_ref=1 -
+      samtools index "${out}"
+    }
+    inputs=()
+    if [[ -n "${TUMOR_ARGS}" ]]; then
+      subset input_tumor.cram ${TUMOR_ARGS}
+      inputs+=(I=input_tumor.cram)
+    fi
+    if [[ -n "${GERMLINE_ARGS}" ]]; then
+      subset input_germline.cram ${GERMLINE_ARGS}
+      inputs+=(I=input_germline.cram)
+    fi
+    subset assembly_shard.cram -I alignments/assembly.bam
+
+    java -Xmx~{jobMemory - 4}g -Xms~{floor(jobMemory / 2)}g -Djava.io.tmpdir="${PWD}/tmp" \
+      -cp /opt/gridss/gridss--gridss-jar-with-dependencies.jar gridss.AnnotateVariants \
+      INPUT_VCF=shard.vcf \
+      R="${REF}" \
+      "${inputs[@]}" \
+      BLACKLIST="${BLACKLIST}" \
+      C=gridss.config \
+      ASSEMBLY=assembly_shard.cram \
+      OUTPUT_VCF=~{outputPrefix}.ann.vcf \
+      THREADS=1
+    rm -f input_tumor.cram input_tumor.cram.crai input_germline.cram input_germline.cram.crai \
+      assembly_shard.cram assembly_shard.cram.crai
+    CONTAINER
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    inputs=()
+    for f in ~{sep=" " vcfs}; do
+      inputs+=("INPUT=$(readlink -f "$f")")
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    run gatk --java-options "-Xmx~{jobMemory - 2}g" MergeVcfs \
+      "${inputs[@]}" \
+      OUTPUT=~{outputFileName}
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in ~{inputVcf} ~{inputVcfIndex} ~{refFasta} ~{refFai} ~{refDict}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # Writes <fulloutput>.bgz and its .tbi
+    run Rscript /opt/gridss/link_breakpoints.R \
+      --input "$(readlink -f ~{inputVcf})" \
+      --fulloutput ~{outputPrefix}_linked.vcf \
+      --ref "$(readlink -f ~{refFasta})" \
+      --scriptdir /opt/gridss/
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in ~{inputVcf} ~{inputVcfIndex} ~{refFasta} ~{refFai} ~{refDict} \
+        ~{ponSglFile} ~{ponSvFile} ~{knownHotspotFile} ~{repeatMaskFile}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    # The index is looked up next to the VCF, so pass the VCF by a path that has both
+    ln -s ~{inputVcf} input.vcf.gz
+    ln -s ~{inputVcfIndex} input.vcf.gz.tbi
+
+    normal_args=()
+    if [[ -n "~{germlineSampleName}" ]]; then
+      normal_args=(-reference "~{germlineSampleName}")
+    fi
+
+    mkdir gripss_output
+    run java -Xmx~{jobMemory - 4}g -jar /opt/wtsi-cgp/java/gripss.jar \
+      -vcf "${PWD}/input.vcf.gz" \
+      -sample "~{tumorSampleName}" \
+      "${normal_args[@]}" \
+      -ref_genome_version ~{refGenomeVersion} \
+      -ref_genome "$(readlink -f ~{refFasta})" \
+      -pon_sgl_file "$(readlink -f ~{ponSglFile})" \
+      -pon_sv_file "$(readlink -f ~{ponSvFile})" \
+      -known_hotspot_file "$(readlink -f ~{knownHotspotFile})" \
+      -repeat_mask_file "$(readlink -f ~{repeatMaskFile})" \
+      ~{"-min_normal_coverage " + minNormalCoverage} \
+      -exclude_filters "~{excludeFilters}" \
+      -output_dir gripss_output
+
+    mv "gripss_output/~{tumorSampleName}.gripss.vcf.gz" ~{outputPrefix}.gripss.vcf.gz
+    mv "gripss_output/~{tumorSampleName}.gripss.vcf.gz.tbi" ~{outputPrefix}.gripss.vcf.gz.tbi
+```
+```
+    set -euo pipefail
+
+    # Bind the filesystem root of every path the tools open: the task directory and
+    # wherever each input resolves to. Roots rather than directories, because the
+    # container runtime skips a bind nested inside another bind.
+    bind_args=(--pwd "$PWD")
+    declare -A roots=()
+    add_bind_root() {
+      [[ -e "$1" ]] || { echo "not found: $1" >&2; exit 1; }
+      local root
+      root="/$(readlink -f "$1" | cut -d/ -f2)"
+      if [[ -z "${roots[$root]:-}" ]]; then
+        roots[$root]=1
+        bind_args+=(-B "$root")
+      fi
+    }
+    add_bind_root "$PWD"
+    for f in ~{inputVcf} ~{inputVcfIndex} ~{refFasta} ~{refFai} ~{refDict}; do
+      add_bind_root "$f"
+    done
+    run() { apptainer exec "${bind_args[@]}" ~{image} "$@"; }
+
+    # Without squashfuse, apptainer unpacks a SIF into a temporary sandbox on every exec and
+    # can fail to delete it. Keep those sandboxes in the task directory and remove them on exit,
+    # without letting a failed cleanup change the task's exit status.
+    export APPTAINER_TMPDIR="${PWD}/apptainer_tmp"
+    mkdir -p "${APPTAINER_TMPDIR}"
+    trap 'chmod -R u+w "${APPTAINER_TMPDIR}" 2> /dev/null || true; rm -rf "${APPTAINER_TMPDIR}" || true' EXIT
+
+    VCF="$(readlink -f ~{inputVcf})"
+    REF="$(readlink -f ~{refFasta})"
+    export VCF REF
+
+    # The R script writes <output_vcf>.bgz
+    run bash -euo pipefail <<'CONTAINER'
+    Rscript /opt/gridss/convert_vcf_format.R \
+      --input_vcf "${VCF}" \
+      --output_vcf ~{outputPrefix}.vcf \
+      --reference "${REF}" \
+      --n_jobs ~{cores}
+    bcftools view -Oz -o ~{outputPrefix}.vcf.gz ~{outputPrefix}.vcf.bgz
+    bcftools index -t ~{outputPrefix}.vcf.gz
+    rm -f ~{outputPrefix}.vcf.bgz ~{outputPrefix}.vcf.bgz.tbi
+    CONTAINER
+```
