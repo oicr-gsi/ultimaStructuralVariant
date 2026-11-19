@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.ruff_cache/
+cromwell-executions/
+cromwell-workflow-logs/
+devlog.txt
+ultimaStructuralVariant_moduletest.wdl
+tests/moduletest_*.json
