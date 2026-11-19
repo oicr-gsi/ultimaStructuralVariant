@@ -47,7 +47,7 @@
             "ultimaStructuralVariant.germlineCramIndexes": [
                 {
                     "contents": {
-                        "configuration": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/test_data/sim_028059.normal_in_tumor.regtest.bam.bai",
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/sim_028059.normal_in_tumor.regtest.bam.bai",
                         "externalIds": [
                             {
                                 "id": "TEST",
@@ -61,7 +61,7 @@
             "ultimaStructuralVariant.germlineCrams": [
                 {
                     "contents": {
-                        "configuration": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/test_data/sim_028059.normal_in_tumor.regtest.bam",
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/sim_028059.normal_in_tumor.regtest.bam",
                         "externalIds": [
                             {
                                 "id": "TEST",
@@ -81,7 +81,7 @@
             "ultimaStructuralVariant.identifyVariants.jobMemory": null,
             "ultimaStructuralVariant.identifyVariants.modules": null,
             "ultimaStructuralVariant.identifyVariants.timeout": null,
-            "ultimaStructuralVariant.intervalList": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/test_data/regtest.interval_list",
+            "ultimaStructuralVariant.intervalList": "/.mounts/labs/gsi/testdata/snvfind/test_data/regtest.interval_list",
             "ultimaStructuralVariant.linkGermlineBreakpoints.cores": null,
             "ultimaStructuralVariant.linkGermlineBreakpoints.jobMemory": null,
             "ultimaStructuralVariant.linkGermlineBreakpoints.modules": null,
@@ -250,7 +250,7 @@
             "ultimaStructuralVariant.germlineCramIndexes": [
                 {
                     "contents": {
-                        "configuration": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/test_data/sim_028059.normal_in_tumor.regtest.bam.bai",
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/sim_028059.normal_in_tumor.regtest.bam.bai",
                         "externalIds": [
                             {
                                 "id": "TEST",
@@ -264,7 +264,7 @@
             "ultimaStructuralVariant.germlineCrams": [
                 {
                     "contents": {
-                        "configuration": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/test_data/sim_028059.normal_in_tumor.regtest.bam",
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/sim_028059.normal_in_tumor.regtest.bam",
                         "externalIds": [
                             {
                                 "id": "TEST",
@@ -284,7 +284,7 @@
             "ultimaStructuralVariant.identifyVariants.jobMemory": null,
             "ultimaStructuralVariant.identifyVariants.modules": null,
             "ultimaStructuralVariant.identifyVariants.timeout": null,
-            "ultimaStructuralVariant.intervalList": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/test_data/regtest.interval_list",
+            "ultimaStructuralVariant.intervalList": "/.mounts/labs/gsi/testdata/snvfind/test_data/regtest.interval_list",
             "ultimaStructuralVariant.linkGermlineBreakpoints.cores": null,
             "ultimaStructuralVariant.linkGermlineBreakpoints.jobMemory": null,
             "ultimaStructuralVariant.linkGermlineBreakpoints.modules": null,
@@ -324,7 +324,7 @@
             "ultimaStructuralVariant.tumorCramIndexes": [
                 {
                     "contents": {
-                        "configuration": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/test_data/HG006_HG003.TP.regtest.bam.bai",
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/HG006_HG003.TP.regtest.bam.bai",
                         "externalIds": [
                             {
                                 "id": "TEST",
@@ -338,7 +338,7 @@
             "ultimaStructuralVariant.tumorCrams": [
                 {
                     "contents": {
-                        "configuration": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/test_data/HG006_HG003.TP.regtest.bam",
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/HG006_HG003.TP.regtest.bam",
                         "externalIds": [
                             {
                                 "id": "TEST",
