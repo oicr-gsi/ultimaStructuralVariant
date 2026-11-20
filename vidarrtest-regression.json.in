@@ -1,0 +1,434 @@
+[
+    {
+        "arguments": {
+            "ultimaStructuralVariant.addReadSupportToAssembly.cores": null,
+            "ultimaStructuralVariant.addReadSupportToAssembly.jobMemory": null,
+            "ultimaStructuralVariant.addReadSupportToAssembly.modules": null,
+            "ultimaStructuralVariant.addReadSupportToAssembly.timeout": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.cores": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.homopolymerLength": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.jobMemory": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.modules": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.timeout": null,
+            "ultimaStructuralVariant.alignWithUa.cores": null,
+            "ultimaStructuralVariant.alignWithUa.jobMemory": null,
+            "ultimaStructuralVariant.alignWithUa.modules": null,
+            "ultimaStructuralVariant.alignWithUa.timeout": null,
+            "ultimaStructuralVariant.alignWithUa.uaExtraArgs": null,
+            "ultimaStructuralVariant.annotateVariants.cores": null,
+            "ultimaStructuralVariant.annotateVariants.germlineMemory": null,
+            "ultimaStructuralVariant.annotateVariants.gridssConfig": null,
+            "ultimaStructuralVariant.annotateVariants.modules": null,
+            "ultimaStructuralVariant.annotateVariants.somaticMemory": null,
+            "ultimaStructuralVariant.annotateVariants.timeout": null,
+            "ultimaStructuralVariant.chooseBestAlignment.cores": null,
+            "ultimaStructuralVariant.chooseBestAlignment.jobMemory": null,
+            "ultimaStructuralVariant.chooseBestAlignment.modules": null,
+            "ultimaStructuralVariant.chooseBestAlignment.realignMapq": null,
+            "ultimaStructuralVariant.chooseBestAlignment.timeout": null,
+            "ultimaStructuralVariant.convertVcfFormat.cores": null,
+            "ultimaStructuralVariant.convertVcfFormat.jobMemory": null,
+            "ultimaStructuralVariant.convertVcfFormat.modules": null,
+            "ultimaStructuralVariant.convertVcfFormat.timeout": null,
+            "ultimaStructuralVariant.createAssembly.cores": null,
+            "ultimaStructuralVariant.createAssembly.jobMemory": null,
+            "ultimaStructuralVariant.createAssembly.maxNumHaps": null,
+            "ultimaStructuralVariant.createAssembly.maxReadsPerPartition": null,
+            "ultimaStructuralVariant.createAssembly.minBase": null,
+            "ultimaStructuralVariant.createAssembly.minMapq": null,
+            "ultimaStructuralVariant.createAssembly.modules": null,
+            "ultimaStructuralVariant.createAssembly.timeout": null,
+            "ultimaStructuralVariant.filterSomatic.cores": null,
+            "ultimaStructuralVariant.filterSomatic.excludeFilters": null,
+            "ultimaStructuralVariant.filterSomatic.jobMemory": null,
+            "ultimaStructuralVariant.filterSomatic.minNormalCoverage": null,
+            "ultimaStructuralVariant.filterSomatic.modules": null,
+            "ultimaStructuralVariant.filterSomatic.timeout": null,
+            "ultimaStructuralVariant.germlineCramIndexes": [
+                {
+                    "contents": {
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/sim_028059.normal_in_tumor.regtest.bam.bai",
+                        "externalIds": [
+                            {
+                                "id": "TEST",
+                                "provider": "TEST"
+                            }
+                        ]
+                    },
+                    "type": "EXTERNAL"
+                }
+            ],
+            "ultimaStructuralVariant.germlineCrams": [
+                {
+                    "contents": {
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/sim_028059.normal_in_tumor.regtest.bam",
+                        "externalIds": [
+                            {
+                                "id": "TEST",
+                                "provider": "TEST"
+                            }
+                        ]
+                    },
+                    "type": "EXTERNAL"
+                }
+            ],
+            "ultimaStructuralVariant.getSampleNames.cores": null,
+            "ultimaStructuralVariant.getSampleNames.jobMemory": null,
+            "ultimaStructuralVariant.getSampleNames.modules": null,
+            "ultimaStructuralVariant.getSampleNames.timeout": null,
+            "ultimaStructuralVariant.identifyVariants.cores": null,
+            "ultimaStructuralVariant.identifyVariants.gridssConfig": null,
+            "ultimaStructuralVariant.identifyVariants.jobMemory": null,
+            "ultimaStructuralVariant.identifyVariants.modules": null,
+            "ultimaStructuralVariant.identifyVariants.timeout": null,
+            "ultimaStructuralVariant.intervalList": "/.mounts/labs/gsi/testdata/snvfind/test_data/regtest.interval_list",
+            "ultimaStructuralVariant.linkGermlineBreakpoints.cores": null,
+            "ultimaStructuralVariant.linkGermlineBreakpoints.jobMemory": null,
+            "ultimaStructuralVariant.linkGermlineBreakpoints.modules": null,
+            "ultimaStructuralVariant.linkGermlineBreakpoints.timeout": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.cores": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.jobMemory": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.maxReadsPerWorkingArea": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.minMapq": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.modules": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.timeout": null,
+            "ultimaStructuralVariant.mergeBams.cores": null,
+            "ultimaStructuralVariant.mergeBams.jobMemory": null,
+            "ultimaStructuralVariant.mergeBams.modules": null,
+            "ultimaStructuralVariant.mergeBams.timeout": null,
+            "ultimaStructuralVariant.mergeMatchedReads.cores": null,
+            "ultimaStructuralVariant.mergeMatchedReads.jobMemory": null,
+            "ultimaStructuralVariant.mergeMatchedReads.modules": null,
+            "ultimaStructuralVariant.mergeMatchedReads.timeout": null,
+            "ultimaStructuralVariant.mergeVcfs.cores": null,
+            "ultimaStructuralVariant.mergeVcfs.jobMemory": null,
+            "ultimaStructuralVariant.mergeVcfs.modules": null,
+            "ultimaStructuralVariant.mergeVcfs.timeout": null,
+            "ultimaStructuralVariant.numShards": 4,
+            "ultimaStructuralVariant.outputFileNamePrefix": "ultimaStructuralVariant_germline",
+            "ultimaStructuralVariant.prefilterCandidates.cores": null,
+            "ultimaStructuralVariant.prefilterCandidates.filterExpression": null,
+            "ultimaStructuralVariant.prefilterCandidates.jobMemory": null,
+            "ultimaStructuralVariant.prefilterCandidates.modules": null,
+            "ultimaStructuralVariant.prefilterCandidates.timeout": null,
+            "ultimaStructuralVariant.reference": null,
+            "ultimaStructuralVariant.scatterIntervals.cores": null,
+            "ultimaStructuralVariant.scatterIntervals.jobMemory": null,
+            "ultimaStructuralVariant.scatterIntervals.modules": null,
+            "ultimaStructuralVariant.scatterIntervals.timeout": null,
+            "ultimaStructuralVariant.scatterIntervalsBreak": null,
+            "ultimaStructuralVariant.symbolicVcfFormat": null,
+            "ultimaStructuralVariant.tumorCramIndexes": null,
+            "ultimaStructuralVariant.tumorCrams": null
+        },
+        "description": "ultimaStructuralVariant germline: HG003 normal called as a germline sample, 2 x 2 Mb",
+        "engineArguments": {
+            "write_to_cache": false,
+            "read_from_cache": false
+        },
+        "id": "ultimaStructuralVariant_germline",
+        "metadata": {
+            "ultimaStructuralVariant.svVcf": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_germline_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.svVcfIndex": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_germline_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.symbolicSvVcf": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_germline_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.symbolicSvVcfIndex": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_germline_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.annotatedVcf": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_germline_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.annotatedVcfIndex": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_germline_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.supportedAssemblyBam": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_germline_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.supportedAssemblyBamIndex": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_germline_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            }
+        },
+        "validators": [
+            {
+                "metrics_calculate": "@CHECKOUT@/tests/calculate.sh",
+                "metrics_compare": "@CHECKOUT@/tests/compare.sh",
+                "output_metrics": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/output_metrics/workflow_germline.metrics",
+                "type": "script"
+            }
+        ]
+    },
+    {
+        "arguments": {
+            "ultimaStructuralVariant.addReadSupportToAssembly.cores": null,
+            "ultimaStructuralVariant.addReadSupportToAssembly.jobMemory": null,
+            "ultimaStructuralVariant.addReadSupportToAssembly.modules": null,
+            "ultimaStructuralVariant.addReadSupportToAssembly.timeout": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.cores": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.homopolymerLength": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.jobMemory": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.modules": null,
+            "ultimaStructuralVariant.alignLongHomopolymers.timeout": null,
+            "ultimaStructuralVariant.alignWithUa.cores": null,
+            "ultimaStructuralVariant.alignWithUa.jobMemory": null,
+            "ultimaStructuralVariant.alignWithUa.modules": null,
+            "ultimaStructuralVariant.alignWithUa.timeout": null,
+            "ultimaStructuralVariant.alignWithUa.uaExtraArgs": null,
+            "ultimaStructuralVariant.annotateVariants.cores": null,
+            "ultimaStructuralVariant.annotateVariants.germlineMemory": null,
+            "ultimaStructuralVariant.annotateVariants.gridssConfig": null,
+            "ultimaStructuralVariant.annotateVariants.modules": null,
+            "ultimaStructuralVariant.annotateVariants.somaticMemory": 16,
+            "ultimaStructuralVariant.annotateVariants.timeout": null,
+            "ultimaStructuralVariant.chooseBestAlignment.cores": null,
+            "ultimaStructuralVariant.chooseBestAlignment.jobMemory": null,
+            "ultimaStructuralVariant.chooseBestAlignment.modules": null,
+            "ultimaStructuralVariant.chooseBestAlignment.realignMapq": null,
+            "ultimaStructuralVariant.chooseBestAlignment.timeout": null,
+            "ultimaStructuralVariant.convertVcfFormat.cores": null,
+            "ultimaStructuralVariant.convertVcfFormat.jobMemory": null,
+            "ultimaStructuralVariant.convertVcfFormat.modules": null,
+            "ultimaStructuralVariant.convertVcfFormat.timeout": null,
+            "ultimaStructuralVariant.createAssembly.cores": null,
+            "ultimaStructuralVariant.createAssembly.jobMemory": null,
+            "ultimaStructuralVariant.createAssembly.maxNumHaps": null,
+            "ultimaStructuralVariant.createAssembly.maxReadsPerPartition": null,
+            "ultimaStructuralVariant.createAssembly.minBase": null,
+            "ultimaStructuralVariant.createAssembly.minMapq": null,
+            "ultimaStructuralVariant.createAssembly.modules": null,
+            "ultimaStructuralVariant.createAssembly.timeout": null,
+            "ultimaStructuralVariant.filterSomatic.cores": null,
+            "ultimaStructuralVariant.filterSomatic.excludeFilters": null,
+            "ultimaStructuralVariant.filterSomatic.jobMemory": null,
+            "ultimaStructuralVariant.filterSomatic.minNormalCoverage": null,
+            "ultimaStructuralVariant.filterSomatic.modules": null,
+            "ultimaStructuralVariant.filterSomatic.timeout": null,
+            "ultimaStructuralVariant.germlineCramIndexes": [
+                {
+                    "contents": {
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/sim_028059.normal_in_tumor.regtest.bam.bai",
+                        "externalIds": [
+                            {
+                                "id": "TEST",
+                                "provider": "TEST"
+                            }
+                        ]
+                    },
+                    "type": "EXTERNAL"
+                }
+            ],
+            "ultimaStructuralVariant.germlineCrams": [
+                {
+                    "contents": {
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/sim_028059.normal_in_tumor.regtest.bam",
+                        "externalIds": [
+                            {
+                                "id": "TEST",
+                                "provider": "TEST"
+                            }
+                        ]
+                    },
+                    "type": "EXTERNAL"
+                }
+            ],
+            "ultimaStructuralVariant.getSampleNames.cores": null,
+            "ultimaStructuralVariant.getSampleNames.jobMemory": null,
+            "ultimaStructuralVariant.getSampleNames.modules": null,
+            "ultimaStructuralVariant.getSampleNames.timeout": null,
+            "ultimaStructuralVariant.identifyVariants.cores": null,
+            "ultimaStructuralVariant.identifyVariants.gridssConfig": null,
+            "ultimaStructuralVariant.identifyVariants.jobMemory": null,
+            "ultimaStructuralVariant.identifyVariants.modules": null,
+            "ultimaStructuralVariant.identifyVariants.timeout": null,
+            "ultimaStructuralVariant.intervalList": "/.mounts/labs/gsi/testdata/snvfind/test_data/regtest.interval_list",
+            "ultimaStructuralVariant.linkGermlineBreakpoints.cores": null,
+            "ultimaStructuralVariant.linkGermlineBreakpoints.jobMemory": null,
+            "ultimaStructuralVariant.linkGermlineBreakpoints.modules": null,
+            "ultimaStructuralVariant.linkGermlineBreakpoints.timeout": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.cores": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.jobMemory": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.maxReadsPerWorkingArea": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.minMapq": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.modules": null,
+            "ultimaStructuralVariant.matchReadsToHaplotypes.timeout": null,
+            "ultimaStructuralVariant.mergeBams.cores": null,
+            "ultimaStructuralVariant.mergeBams.jobMemory": null,
+            "ultimaStructuralVariant.mergeBams.modules": null,
+            "ultimaStructuralVariant.mergeBams.timeout": null,
+            "ultimaStructuralVariant.mergeMatchedReads.cores": null,
+            "ultimaStructuralVariant.mergeMatchedReads.jobMemory": null,
+            "ultimaStructuralVariant.mergeMatchedReads.modules": null,
+            "ultimaStructuralVariant.mergeMatchedReads.timeout": null,
+            "ultimaStructuralVariant.mergeVcfs.cores": null,
+            "ultimaStructuralVariant.mergeVcfs.jobMemory": null,
+            "ultimaStructuralVariant.mergeVcfs.modules": null,
+            "ultimaStructuralVariant.mergeVcfs.timeout": null,
+            "ultimaStructuralVariant.numShards": 4,
+            "ultimaStructuralVariant.outputFileNamePrefix": "ultimaStructuralVariant_somatic",
+            "ultimaStructuralVariant.prefilterCandidates.cores": null,
+            "ultimaStructuralVariant.prefilterCandidates.filterExpression": null,
+            "ultimaStructuralVariant.prefilterCandidates.jobMemory": null,
+            "ultimaStructuralVariant.prefilterCandidates.modules": null,
+            "ultimaStructuralVariant.prefilterCandidates.timeout": null,
+            "ultimaStructuralVariant.reference": null,
+            "ultimaStructuralVariant.scatterIntervals.cores": null,
+            "ultimaStructuralVariant.scatterIntervals.jobMemory": null,
+            "ultimaStructuralVariant.scatterIntervals.modules": null,
+            "ultimaStructuralVariant.scatterIntervals.timeout": null,
+            "ultimaStructuralVariant.scatterIntervalsBreak": null,
+            "ultimaStructuralVariant.symbolicVcfFormat": null,
+            "ultimaStructuralVariant.tumorCramIndexes": [
+                {
+                    "contents": {
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/HG006_HG003.TP.regtest.bam.bai",
+                        "externalIds": [
+                            {
+                                "id": "TEST",
+                                "provider": "TEST"
+                            }
+                        ]
+                    },
+                    "type": "EXTERNAL"
+                }
+            ],
+            "ultimaStructuralVariant.tumorCrams": [
+                {
+                    "contents": {
+                        "configuration": "/.mounts/labs/gsi/testdata/snvfind/test_data/HG006_HG003.TP.regtest.bam",
+                        "externalIds": [
+                            {
+                                "id": "TEST",
+                                "provider": "TEST"
+                            }
+                        ]
+                    },
+                    "type": "EXTERNAL"
+                }
+            ]
+        },
+        "description": "ultimaStructuralVariant somatic: HG006 tumor vs HG003 normal, GRIPSS filtering, 2 x 2 Mb",
+        "engineArguments": {
+            "write_to_cache": false,
+            "read_from_cache": false
+        },
+        "id": "ultimaStructuralVariant_somatic",
+        "metadata": {
+            "ultimaStructuralVariant.svVcf": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_somatic_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.svVcfIndex": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_somatic_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.symbolicSvVcf": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_somatic_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.symbolicSvVcfIndex": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_somatic_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.annotatedVcf": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_somatic_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.annotatedVcfIndex": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_somatic_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.supportedAssemblyBam": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_somatic_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            },
+            "ultimaStructuralVariant.supportedAssemblyBamIndex": {
+                "contents": [
+                    {
+                        "outputDirectory": "@SCRATCH@/@DATE@_Workflow_ultimaStructuralVariant_somatic_@JENKINSID@"
+                    }
+                ],
+                "type": "ALL"
+            }
+        },
+        "validators": [
+            {
+                "metrics_calculate": "@CHECKOUT@/tests/calculate.sh",
+                "metrics_compare": "@CHECKOUT@/tests/compare.sh",
+                "output_metrics": "/.mounts/labs/gsi/testdata/ultimaStructuralVariant/output_metrics/workflow_somatic.metrics",
+                "type": "script"
+            }
+        ]
+    }
+]
